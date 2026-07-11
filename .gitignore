@@ -14,3 +14,4 @@ wheels/
 *.tfstate.backup
 *.tfvars
 **/.terraform/*
+google-cloud-sdk/
