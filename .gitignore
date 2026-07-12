@@ -12,6 +12,10 @@ wheels/
 .terraform/
 *.tfstate
 *.tfstate.backup
-*.tfvars
+# Only bootstrap's tfvars holds real secrets (billing account id, org id,
+# GitHub tokens) before they're seeded into Secret Manager - keep that out
+# of git. Application-level tfvars (project_id/region/network_name/
+# subnet_cidr) contain no secrets and must be tracked so CI can plan/apply.
+bootstrap/terraform.tfvars
 **/.terraform/*
 google-cloud-sdk/
