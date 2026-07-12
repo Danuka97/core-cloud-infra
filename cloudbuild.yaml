@@ -67,13 +67,15 @@ steps:
         exit 0
       fi
 
-      while IFS= read -r dir; do
+      # Read from fd 3 (not stdin) so terraform can't consume the loop's
+      # own input and cause it to silently stop after the first directory.
+      while IFS= read -r dir <&3; do
         if [ -d "$dir" ]; then
           echo "Initializing Terraform in $dir..."
           cd /workspace/"$dir"
           terraform init
         fi
-      done < /workspace/changed_dirs.txt
+      done 3< /workspace/changed_dirs.txt
     id: 'tf-init'
 
   # Terraform Plan (Runs for changed directories)
@@ -83,13 +85,13 @@ steps:
     - '-c'
     - |
       if [ "$_ACTION" = "plan" ] || [ "$_ACTION" = "apply" ]; then
-        while IFS= read -r dir; do
+        while IFS= read -r dir <&3; do
           if [ -d "$dir" ]; then
             echo "Planning Terraform in $dir..."
             cd /workspace/"$dir"
             terraform plan -out=tfplan
           fi
-        done < /workspace/changed_dirs.txt
+        done 3< /workspace/changed_dirs.txt
       fi
     id: 'tf-plan'
     waitFor: ['tf-init']
@@ -101,7 +103,7 @@ steps:
     - '-c'
     - |
       if [ "$_ACTION" = "apply" ]; then
-        while IFS= read -r dir; do
+        while IFS= read -r dir <&3; do
           if [ -d "$dir" ]; then
             echo "Applying Terraform in $dir..."
             cd /workspace/"$dir"
@@ -112,7 +114,7 @@ steps:
               exit 1
             fi
           fi
-        done < /workspace/changed_dirs.txt
+        done 3< /workspace/changed_dirs.txt
       else
         echo "Action is not apply, skipping terraform apply."
       fi
