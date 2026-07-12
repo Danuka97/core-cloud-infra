@@ -16,11 +16,34 @@ steps:
       fi
 
       echo "Looking for changes against $$DIFF_TARGET..."
-      
-      # Find directories under applications/ that contain modified .tf, .tfvars, or backend files
-      git diff --name-only $$DIFF_TARGET $COMMIT_SHA | grep -E "^applications/.*\.(tf|tfvars)$" | xargs dirname | sort -u > /workspace/changed_dirs.txt || true
-      
-      echo "Directories with changes:"
+
+      CHANGED_FILES=$$(git diff --name-only $$DIFF_TARGET $COMMIT_SHA)
+
+      # Any application-specific file changed (main.tf, variables.tf, tfvars, etc.)
+      # re-plans/applies EVERY environment of that application, not just the one
+      # environment whose file changed - keeps dev/uat/prod consistent.
+      CHANGED_APPS=$$(echo "$$CHANGED_FILES" | grep -E "^applications/[^/]+/" | cut -d/ -f2 | sort -u)
+
+      # A change to a shared module affects every application/environment that
+      # consumes it, so fall back to targeting everything under applications/.
+      MODULES_CHANGED=$$(echo "$$CHANGED_FILES" | grep -c "^modules/" || true)
+
+      > /workspace/changed_dirs.txt
+
+      if [ "$$MODULES_CHANGED" -gt 0 ]; then
+        echo "Shared module changes detected - targeting all application environments."
+        find applications -mindepth 2 -maxdepth 2 -type d >> /workspace/changed_dirs.txt
+      else
+        for app in $$CHANGED_APPS; do
+          if [ -d "applications/$$app" ]; then
+            find "applications/$$app" -mindepth 1 -maxdepth 1 -type d >> /workspace/changed_dirs.txt
+          fi
+        done
+      fi
+
+      sort -u -o /workspace/changed_dirs.txt /workspace/changed_dirs.txt
+
+      echo "Directories to process:"
       cat /workspace/changed_dirs.txt
 
   # Initialize Terraform in all changed directories
