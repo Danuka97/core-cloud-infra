@@ -1,4 +1,5 @@
 # 1. Configure the Provider for Administrative Actions
+# (touch: verifying CI pipeline processes all environments end-to-end)
 provider "google" {
   region = var.region
 }
