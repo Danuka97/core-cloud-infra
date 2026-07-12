@@ -67,15 +67,19 @@ steps:
         exit 0
       fi
 
-      # Read from fd 3 (not stdin) so terraform can't consume the loop's
-      # own input and cause it to silently stop after the first directory.
-      while IFS= read -r dir <&3; do
+      # Use a for-loop over command substitution (not "while read ... done <
+      # file") so terraform can never interfere with how directories are
+      # iterated - a while-read loop shares its stdin fd with every command
+      # run inside it, and some shells let subprocesses (like terraform)
+      # consume/exhaust that fd, silently stopping the loop after one entry.
+      for dir in $(cat /workspace/changed_dirs.txt); do
         if [ -d "$dir" ]; then
           echo "Initializing Terraform in $dir..."
           cd /workspace/"$dir"
-          terraform init
+          terraform init -input=false
+          cd /workspace
         fi
-      done 3< /workspace/changed_dirs.txt
+      done
     id: 'tf-init'
 
   # Terraform Plan (Runs for changed directories)
@@ -85,13 +89,14 @@ steps:
     - '-c'
     - |
       if [ "$_ACTION" = "plan" ] || [ "$_ACTION" = "apply" ]; then
-        while IFS= read -r dir <&3; do
+        for dir in $(cat /workspace/changed_dirs.txt); do
           if [ -d "$dir" ]; then
             echo "Planning Terraform in $dir..."
             cd /workspace/"$dir"
-            terraform plan -out=tfplan
+            terraform plan -input=false -out=tfplan
+            cd /workspace
           fi
-        done 3< /workspace/changed_dirs.txt
+        done
       fi
     id: 'tf-plan'
     waitFor: ['tf-init']
@@ -103,18 +108,19 @@ steps:
     - '-c'
     - |
       if [ "$_ACTION" = "apply" ]; then
-        while IFS= read -r dir <&3; do
+        for dir in $(cat /workspace/changed_dirs.txt); do
           if [ -d "$dir" ]; then
             echo "Applying Terraform in $dir..."
             cd /workspace/"$dir"
             if [ -f "tfplan" ]; then
-              terraform apply -auto-approve tfplan
+              terraform apply -auto-approve -input=false tfplan
             else
               echo "Error: tfplan missing in $dir"
               exit 1
             fi
+            cd /workspace
           fi
-        done 3< /workspace/changed_dirs.txt
+        done
       else
         echo "Action is not apply, skipping terraform apply."
       fi
