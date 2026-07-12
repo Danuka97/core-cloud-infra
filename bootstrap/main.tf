@@ -50,8 +50,6 @@ resource "google_cloudbuild_trigger" "apps_pr_plan_trigger" {
   name     = "plan-infra-prs"
   location = "europe-west2"
 
-  service_account = "projects/${data.google_project.current.project_id}/serviceAccounts/${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
-
   repository_event_config {
     repository = local.repo_id
     pull_request {
@@ -75,8 +73,6 @@ resource "google_cloudbuild_trigger" "apps_pr_plan_trigger" {
 resource "google_cloudbuild_trigger" "apps_push_main_trigger" {
   name     = "apply-infra-push-main"
   location = "europe-west2"
-
-  service_account = "projects/${data.google_project.current.project_id}/serviceAccounts/${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
 
   repository_event_config {
     repository = local.repo_id
