@@ -9,6 +9,7 @@
 module "project" {
   source             = "../project_factory"
   environment        = var.environment
+  app_name           = var.app_name
   region             = var.region
   secrets_project_id = var.secrets_project_id
 }

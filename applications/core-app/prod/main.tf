@@ -7,6 +7,7 @@ provider "google" {
 module "env" {
   source              = "../../../modules/environment"
   environment         = "prod"
+  app_name            = "core-app"
   secrets_project_id  = var.project_id
   region              = var.region
   network_name        = var.network_name

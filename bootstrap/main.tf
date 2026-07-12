@@ -77,9 +77,18 @@ resource "google_project_iam_member" "build_sa_logging" {
 # The pipeline now reads billing_account_id directly from Secret Manager
 # (instead of it being passed around as a plaintext variable), so the CI
 # service account needs read access to that specific secret.
+# NOTE: roles/secretmanager.secretAccessor only grants secretmanager.versions.access
+# (reading the payload) - Terraform's google_secret_manager_secret_version data
+# source also calls versions.get (metadata), which requires roles/secretmanager.viewer.
 resource "google_secret_manager_secret_iam_member" "build_sa_secret_accessor" {
   secret_id = google_secret_manager_secret.billing_secret.id
   role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_secret_manager_secret_iam_member" "build_sa_secret_viewer" {
+  secret_id = google_secret_manager_secret.billing_secret.id
+  role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
@@ -87,6 +96,12 @@ resource "google_secret_manager_secret_iam_member" "build_sa_secret_accessor" {
 resource "google_secret_manager_secret_iam_member" "build_sa_org_id_accessor" {
   secret_id = google_secret_manager_secret.org_id_secret.id
   role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_secret_manager_secret_iam_member" "build_sa_org_id_viewer" {
+  secret_id = google_secret_manager_secret.org_id_secret.id
+  role      = "roles/secretmanager.viewer"
   member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 

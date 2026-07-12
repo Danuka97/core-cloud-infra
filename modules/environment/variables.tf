@@ -3,6 +3,11 @@ variable "environment" {
   type        = string
 }
 
+variable "app_name" {
+  description = "The application name, used to scope the project name/ID (e.g., core-app, task-manager)"
+  type        = string
+}
+
 variable "region" {
   description = "The region to deploy resources into"
   type        = string

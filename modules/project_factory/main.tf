@@ -25,8 +25,8 @@ data "google_secret_manager_secret_version" "org_id" {
 
 # 4. Create the New Environment Project
 resource "google_project" "env_project" {
-  name            = "core-infra-${var.environment}"
-  project_id      = "core-infra-${var.environment}-${random_id.suffix.hex}"
+  name            = "${var.app_name}-${var.environment}"
+  project_id      = "${var.app_name}-${var.environment}-${random_id.suffix.hex}"
   org_id          = data.google_secret_manager_secret_version.org_id.secret_data
   billing_account = data.google_secret_manager_secret_version.billing_account.secret_data
 }
