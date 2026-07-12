@@ -36,6 +36,24 @@ resource "google_secret_manager_secret_version" "billing_secret_version" {
 # 3. Construct the repository ID string directly
 locals {
   repo_id = google_cloudbuildv2_repository.core_infra_repo.id
+
+  # GCP now requires triggers to use an explicit user-managed service account
+  # rather than the legacy default. We reuse the default Compute Engine SA.
+  build_service_account = "projects/${data.google_project.current.project_id}/serviceAccounts/${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+# Grant the service account the roles required to run Cloud Build jobs
+# when it is explicitly assigned to a trigger.
+resource "google_project_iam_member" "build_sa_builder" {
+  project = data.google_project.current.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "build_sa_logging" {
+  project = data.google_project.current.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
 # Preserve the state of the old dev trigger since we're restructuring
@@ -50,6 +68,8 @@ resource "google_cloudbuild_trigger" "apps_pr_plan_trigger" {
   name     = "plan-infra-prs"
   location = "europe-west2"
 
+  service_account = local.build_service_account
+
   repository_event_config {
     repository = local.repo_id
     pull_request {
@@ -59,20 +79,23 @@ resource "google_cloudbuild_trigger" "apps_pr_plan_trigger" {
 
   filename = "cloudbuild.yaml"
 
-  # Only trigger if changes happen in the applications/ directory
-  included_files = ["applications/**"]
-
   substitutions = {
     _ACTION      = "plan"
   }
 
-  depends_on = [google_cloudbuildv2_repository.core_infra_repo]
+  depends_on = [
+    google_cloudbuildv2_repository.core_infra_repo,
+    google_project_iam_member.build_sa_builder,
+    google_project_iam_member.build_sa_logging,
+  ]
 }
 
 # 5. Trigger 2: APPLY on Push to Main
 resource "google_cloudbuild_trigger" "apps_push_main_trigger" {
   name     = "apply-infra-push-main"
   location = "europe-west2"
+
+  service_account = local.build_service_account
 
   repository_event_config {
     repository = local.repo_id
@@ -83,14 +106,15 @@ resource "google_cloudbuild_trigger" "apps_push_main_trigger" {
 
   filename = "cloudbuild.yaml"
 
-  # Only trigger if changes happen in the applications/ directory
-  included_files = ["applications/**"]
-
   substitutions = {
     _ACTION = "apply"
   }
 
-  depends_on = [google_cloudbuildv2_repository.core_infra_repo]
+  depends_on = [
+    google_cloudbuildv2_repository.core_infra_repo,
+    google_project_iam_member.build_sa_builder,
+    google_project_iam_member.build_sa_logging,
+  ]
 }
 
 # GitHub App installation connection (2nd-gen)
