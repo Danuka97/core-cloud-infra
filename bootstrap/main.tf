@@ -56,6 +56,15 @@ resource "google_project_iam_member" "build_sa_logging" {
   member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
+# The pipeline now reads billing_account_id directly from Secret Manager
+# (instead of it being passed around as a plaintext variable), so the CI
+# service account needs read access to that specific secret.
+resource "google_secret_manager_secret_iam_member" "build_sa_secret_accessor" {
+  secret_id = google_secret_manager_secret.billing_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
 # Preserve the state of the old dev trigger since we're restructuring
 # We will migrate it to the new "push-main" generic trigger
 moved {

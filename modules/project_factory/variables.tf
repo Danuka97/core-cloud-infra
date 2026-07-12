@@ -9,8 +9,8 @@ variable "region" {
   default     = "europe-west2"
 }
 
-variable "billing_account_id" {
-  description = "The GCP billing account ID"
+variable "secrets_project_id" {
+  description = "The GCP project ID where the 'billing-account-id' Secret Manager secret lives (the bootstrap/admin project)"
   type        = string
 }
 

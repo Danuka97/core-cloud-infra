@@ -18,8 +18,3 @@ variable "subnet_cidr" {
   description = "The CIDR range for the private subnet"
   type        = string
 }
-
-variable "billing_account_id" {
-  description = "The GCP billing account ID"
-  type        = string
-}

@@ -1,11 +1,12 @@
 variable "org_id" {
   type        = string
-  description = "REDACTED-ORG-ID"
+  description = "The GCP Organization ID"
 }
 
 variable "billing_account_id" {
   type        = string
-  description = "REDACTED-BILLING-ACCOUNT-ID"
+  description = "The GCP billing account ID to attach to this project and any child projects"
+  sensitive   = true
 }
 
 variable "github_app_installation_id" {

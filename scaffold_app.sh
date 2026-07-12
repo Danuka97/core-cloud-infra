@@ -10,9 +10,8 @@ fi
 APP_NAME=$1
 BASE_DIR="applications/${APP_NAME}"
 STATE_BUCKET="project-178eec10-8102-4697-a53-tf-state"
-BILLING_ID="REDACTED-BILLING-ACCOUNT-ID"
 REGION="europe-west2"
-PROJECT_ID="project-178eec10-8102-4697-a53" # Authenticating project
+PROJECT_ID="project-178eec10-8102-4697-a53" # Authenticating project + secrets project
 
 echo "Scaffolding new application: ${APP_NAME}..."
 
@@ -55,7 +54,7 @@ provider "google" {
 module "env" {
   source              = "../../../modules/environment"
   environment         = "${ENV}"
-  billing_account_id  = var.billing_account_id
+  secrets_project_id  = var.project_id
   region              = var.region
   network_name        = var.network_name
   subnet_cidr         = var.subnet_cidr
@@ -84,11 +83,6 @@ variable "subnet_cidr" {
   description = "The CIDR range for the private subnet"
   type        = string
 }
-
-variable "billing_account_id" {
-  description = "The GCP billing account ID"
-  type        = string
-}
 EOF
 
   # 5. terraform.tfvars - Generates pseudo-random non-overlapping CIDRs 
@@ -102,7 +96,6 @@ project_id         = "${PROJECT_ID}"
 region             = "${REGION}"
 network_name       = "${APP_NAME}-${ENV}-vpc"
 subnet_cidr        = "${CIDR}"
-billing_account_id = "${BILLING_ID}"
 EOF
 
   echo "Created ${ENV_DIR}"

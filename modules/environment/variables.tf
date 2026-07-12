@@ -1,5 +1,5 @@
-variable "project_id" {
-  description = "The GCP project ID used to authenticate the provider"
+variable "environment" {
+  description = "The environment name (e.g., dev, uat, prod)"
   type        = string
 }
 
@@ -7,6 +7,11 @@ variable "region" {
   description = "The region to deploy resources into"
   type        = string
   default     = "europe-west2"
+}
+
+variable "secrets_project_id" {
+  description = "The GCP project ID where the 'billing-account-id' Secret Manager secret lives (the bootstrap/admin project)"
+  type        = string
 }
 
 variable "network_name" {
