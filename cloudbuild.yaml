@@ -11,8 +11,18 @@ steps:
         git fetch origin $_BASE_BRANCH --depth=1
         DIFF_TARGET="origin/$_BASE_BRANCH"
       else
-        git fetch origin $COMMIT_SHA~1 --depth=1
-        DIFF_TARGET="$COMMIT_SHA~1"
+        # Cloud Build's automatic source checkout is a shallow (depth=1) clone
+        # of just $COMMIT_SHA, so its parent doesn't exist locally yet and
+        # "$COMMIT_SHA~1" can't be used as a remote refspec for fetch. Fetch
+        # $COMMIT_SHA again with depth=2 to pull down its parent too.
+        git fetch origin $COMMIT_SHA --depth=2
+        if git rev-parse -q --verify "$COMMIT_SHA~1" >/dev/null 2>&1; then
+          DIFF_TARGET="$COMMIT_SHA~1"
+        else
+          # No parent (e.g. very first commit) - diff against the empty tree
+          # so every file counts as changed.
+          DIFF_TARGET=$$(git hash-object -t tree /dev/null)
+        fi
       fi
 
       echo "Looking for changes against $$DIFF_TARGET..."
