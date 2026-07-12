@@ -1,0 +1,95 @@
+steps:
+  # Retrieve the list of changed directories comparing against previous commit or PR target branch
+  # This relies on Cloud Build cloning the repo securely and git history being available.
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      # If this is a PR, compare against base branch; if it's a push, compare against previous commit
+      if [ -n "$_HEAD_BRANCH" ]; then
+        git fetch origin $_BASE_BRANCH --depth=1
+        DIFF_TARGET="origin/$_BASE_BRANCH"
+      else
+        git fetch origin $COMMIT_SHA~1 --depth=1
+        DIFF_TARGET="$COMMIT_SHA~1"
+      fi
+
+      echo "Looking for changes against $DIFF_TARGET..."
+      
+      # Find directories under applications/ that contain modified .tf, .tfvars, or backend files
+      git diff --name-only $DIFF_TARGET $COMMIT_SHA | grep -E "^applications/.*\.(tf|tfvars)$" | xargs dirname | sort -u > /workspace/changed_dirs.txt || true
+      
+      echo "Directories with changes:"
+      cat /workspace/changed_dirs.txt
+
+  # Initialize Terraform in all changed directories
+  - name: 'hashicorp/terraform:latest'
+    entrypoint: 'sh'
+    args: 
+    - '-c'
+    - |
+      if [ ! -s /workspace/changed_dirs.txt ]; then
+        echo "No application changes detected."
+        exit 0
+      fi
+
+      while IFS= read -r dir; do
+        if [ -d "$dir" ]; then
+          echo "Initializing Terraform in $dir..."
+          cd /workspace/"$dir"
+          terraform init
+        fi
+      done < /workspace/changed_dirs.txt
+    id: 'tf-init'
+
+  # Terraform Plan (Runs for changed directories)
+  - name: 'hashicorp/terraform:latest'
+    entrypoint: 'sh'
+    args: 
+    - '-c'
+    - |
+      if [ "$_ACTION" = "plan" ] || [ "$_ACTION" = "apply" ]; then
+        while IFS= read -r dir; do
+          if [ -d "$dir" ]; then
+            echo "Planning Terraform in $dir..."
+            cd /workspace/"$dir"
+            terraform plan -out=tfplan
+          fi
+        done < /workspace/changed_dirs.txt
+      fi
+    id: 'tf-plan'
+    waitFor: ['tf-init']
+
+  # Terraform Apply (Only runs if _ACTION=apply)
+  - name: 'hashicorp/terraform:latest'
+    entrypoint: 'sh'
+    args: 
+    - '-c'
+    - |
+      if [ "$_ACTION" = "apply" ]; then
+        while IFS= read -r dir; do
+          if [ -d "$dir" ]; then
+            echo "Applying Terraform in $dir..."
+            cd /workspace/"$dir"
+            if [ -f "tfplan" ]; then
+              terraform apply -auto-approve tfplan
+            else
+              echo "Error: tfplan missing in $dir"
+              exit 1
+            fi
+          fi
+        done < /workspace/changed_dirs.txt
+      else
+        echo "Action is not apply, skipping terraform apply."
+      fi
+    id: 'tf-apply'
+    waitFor: ['tf-plan']
+
+substitutions:
+  _ACTION: "plan"      # Defaults to plan, overridden to 'apply' in push-to-main trigger
+  _BASE_BRANCH: ""     # Used for PRs
+  _HEAD_BRANCH: ""     # Used for PRs
+
+options:
+  logging: CLOUD_LOGGING_ONLY
