@@ -1,6 +1,7 @@
 variable "org_id" {
   type        = string
   description = "The GCP Organization ID"
+  sensitive   = true
 }
 
 variable "billing_account_id" {

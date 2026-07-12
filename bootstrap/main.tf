@@ -33,6 +33,24 @@ resource "google_secret_manager_secret_version" "billing_secret_version" {
   secret_data = var.billing_account_id
 }
 
+# 2b. Store the org ID in Secret Manager too, so environment projects can be
+# created under the org without the ID ever needing to live in a tracked
+# tfvars file.
+resource "google_secret_manager_secret" "org_id_secret" {
+  secret_id = "org-id"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.services]
+}
+
+resource "google_secret_manager_secret_version" "org_id_secret_version" {
+  secret      = google_secret_manager_secret.org_id_secret.id
+  secret_data = var.org_id
+}
+
 # 3. Construct the repository ID string directly
 locals {
   repo_id = google_cloudbuildv2_repository.core_infra_repo.id
@@ -63,6 +81,28 @@ resource "google_secret_manager_secret_iam_member" "build_sa_secret_accessor" {
   secret_id = google_secret_manager_secret.billing_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+# Same read access for the org-id secret.
+resource "google_secret_manager_secret_iam_member" "build_sa_org_id_accessor" {
+  secret_id = google_secret_manager_secret.org_id_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+# The CI service account needs org-level rights to create new environment
+# projects (project_factory's google_project resource), and a billing role
+# to attach the billing account to those newly created projects.
+resource "google_organization_iam_member" "build_sa_project_creator" {
+  org_id = var.org_id
+  role   = "roles/resourcemanager.projectCreator"
+  member = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+resource "google_billing_account_iam_member" "build_sa_billing_user" {
+  billing_account_id = var.billing_account_id
+  role                = "roles/billing.user"
+  member              = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
 # Preserve the state of the old dev trigger since we're restructuring

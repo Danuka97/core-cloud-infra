@@ -13,8 +13,3 @@ variable "secrets_project_id" {
   description = "The GCP project ID where the 'billing-account-id' Secret Manager secret lives (the bootstrap/admin project)"
   type        = string
 }
-
-# variable "org_id" {
-#   description = "The GCP Organization ID"
-#   type        = string
-# }

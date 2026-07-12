@@ -15,11 +15,18 @@ data "google_secret_manager_secret_version" "billing_account" {
   project = var.secrets_project_id
 }
 
+# 3b. Fetch the org ID from Secret Manager the same way, so it never needs
+# to be stored in a tracked tfvars file.
+data "google_secret_manager_secret_version" "org_id" {
+  secret  = "org-id"
+  project = var.secrets_project_id
+}
+
 # 4. Create the New Environment Project
 resource "google_project" "env_project" {
   name            = "core-infra-${var.environment}"
   project_id      = "core-infra-${var.environment}-${random_id.suffix.hex}"
-  # org_id          = var.org_id  # Uncomment if using an organization
+  org_id          = data.google_secret_manager_secret_version.org_id.secret_data
   billing_account = data.google_secret_manager_secret_version.billing_account.secret_data
 }
 
