@@ -15,10 +15,10 @@ steps:
         DIFF_TARGET="$COMMIT_SHA~1"
       fi
 
-      echo "Looking for changes against $DIFF_TARGET..."
+      echo "Looking for changes against $$DIFF_TARGET..."
       
       # Find directories under applications/ that contain modified .tf, .tfvars, or backend files
-      git diff --name-only $DIFF_TARGET $COMMIT_SHA | grep -E "^applications/.*\.(tf|tfvars)$" | xargs dirname | sort -u > /workspace/changed_dirs.txt || true
+      git diff --name-only $$DIFF_TARGET $COMMIT_SHA | grep -E "^applications/.*\.(tf|tfvars)$" | xargs dirname | sort -u > /workspace/changed_dirs.txt || true
       
       echo "Directories with changes:"
       cat /workspace/changed_dirs.txt
