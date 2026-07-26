@@ -9,9 +9,9 @@ fi
 
 APP_NAME=$1
 BASE_DIR="applications/${APP_NAME}"
-STATE_BUCKET="project-178eec10-8102-4697-a53-tf-state"
+STATE_BUCKET="core-infra-seed-8274-tf-state"
 REGION="europe-west2"
-PROJECT_ID="project-178eec10-8102-4697-a53" # Authenticating project + secrets project
+PROJECT_ID="core-infra-seed-8274" # Authenticating project + secrets project
 
 echo "Scaffolding new application: ${APP_NAME}..."
 
