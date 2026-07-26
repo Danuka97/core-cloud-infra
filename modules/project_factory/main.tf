@@ -50,6 +50,8 @@ resource "google_project_service" "apis" {
     "aiplatform.googleapis.com",
     "iam.googleapis.com",
     "cloudkms.googleapis.com",
+    "vpcaccess.googleapis.com",
+    "firebase.googleapis.com",
   ])
 
   project            = google_project.env_project.project_id
