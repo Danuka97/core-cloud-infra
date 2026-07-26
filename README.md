@@ -88,6 +88,21 @@ whatever the earlier, un-built merge introduced.
 Only directories with actual changes are touched — merging a change to
 `applications/core-app/prod/terraform.tfvars` will not re-plan `task_manager`.
 
+### Controlling which environments actually get created
+
+Every environment under a changed app gets **planned**, but `terraform apply`
+only runs for environments that have an `.enabled` marker file (an empty
+file at `applications/<app>/<env>/.enabled`) committed in their directory.
+This is the on/off switch for which environments actually exist as real GCP
+projects — add or remove the file in a PR to turn an environment on or off,
+independent of which other files changed.
+
+This matters because creating a new GCP project attaches it to a billing
+account, and billing accounts have a rate limit on how many new projects can
+be linked in a given window. Enabling environments a few at a time (rather
+than merging all of an app's dev/uat/prod, or several apps at once) avoids
+hitting that limit.
+
 ## Local usage (rare — CI is the normal path)
 
 ```

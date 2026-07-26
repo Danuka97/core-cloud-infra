@@ -5,8 +5,8 @@ provider "google" {
 
 module "env" {
   source              = "../../../modules/environment"
-  environment         = "uat"
-  app_name            = "agnet_task_manager"
+  environment         = "prod"
+  app_name            = "agent-task-mgr"
   secrets_project_id  = var.project_id
   region              = var.region
   network_name        = var.network_name

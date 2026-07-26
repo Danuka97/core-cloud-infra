@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
     bucket = "core-infra-seed-8274-tf-state"
-    prefix = "terraform/state/agnet_task_manager/uat"
+    prefix = "terraform/state/agent-task-mgr/prod"
   }
 }
