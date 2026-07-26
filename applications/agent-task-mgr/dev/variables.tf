@@ -18,3 +18,8 @@ variable "subnet_cidr" {
   description = "The CIDR range for the private subnet"
   type        = string
 }
+
+variable "vpc_connector_cidr" {
+  description = "A /28 CIDR range, distinct from subnet_cidr, dedicated to the Serverless VPC Access connector"
+  type        = string
+}

@@ -28,3 +28,14 @@ variable "subnet_cidr" {
   description = "The CIDR range for the private subnet"
   type        = string
 }
+
+variable "container_image" {
+  description = "The backend container image to deploy to Cloud Run. Defaults to a public placeholder so terraform apply succeeds before any real backend image has been built and pushed."
+  type        = string
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "vpc_connector_cidr" {
+  description = "A /28 CIDR range, distinct from subnet_cidr, dedicated to the Serverless VPC Access connector"
+  type        = string
+}
