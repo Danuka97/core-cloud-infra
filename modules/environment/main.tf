@@ -21,3 +21,29 @@ module "network" {
   region       = var.region
   subnet_cidr  = var.subnet_cidr
 }
+
+module "backend" {
+  source             = "../cloud_run_backend"
+  project_id         = module.project.project_id
+  region             = var.region
+  app_name           = var.app_name
+  environment        = var.environment
+  container_image    = var.container_image
+  network_id         = module.network.network_id
+  vpc_connector_cidr = var.vpc_connector_cidr
+}
+
+module "firebase" {
+  source             = "../firebase_auth"
+  project_id         = module.project.project_id
+  app_name           = var.app_name
+  environment        = var.environment
+  secrets_project_id = var.secrets_project_id
+}
+
+module "vertex_agent" {
+  source      = "../vertex_agent"
+  project_id  = module.project.project_id
+  app_name    = var.app_name
+  environment = var.environment
+}

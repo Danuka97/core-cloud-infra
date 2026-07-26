@@ -37,11 +37,31 @@ resource "google_project" "env_project" {
   auto_create_network = false
 }
 
-# 5. Enable Required APIs (Optional but recommended)
-resource "google_project_service" "compute_api" {
+# 5. Enable APIs required by this environment's resources (VPC/compute,
+# Cloud Run backend, Firebase Auth, and the Vertex AI prerequisites for the
+# agent - the agent itself still has to be created outside Terraform, see
+# modules/vertex_agent).
+resource "google_project_service" "apis" {
+  for_each = toset([
+    "compute.googleapis.com",
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "identitytoolkit.googleapis.com",
+    "aiplatform.googleapis.com",
+    "iam.googleapis.com",
+  ])
+
   project            = google_project.env_project.project_id
-  service            = "compute.googleapis.com"
+  service            = each.key
   disable_on_destroy = false
+}
+
+# Preserve state for environments that already had compute.googleapis.com
+# enabled under the old single-resource name, so this rename doesn't try to
+# disable-then-reenable the API.
+moved {
+  from = google_project_service.compute_api
+  to   = google_project_service.apis["compute.googleapis.com"]
 }
 
 # Audit logging must be explicitly configured per-service (Admin Activity
