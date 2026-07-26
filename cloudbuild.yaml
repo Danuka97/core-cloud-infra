@@ -102,14 +102,24 @@ steps:
       # iterated - a while-read loop shares its stdin fd with every command
       # run inside it, and some shells let subprocesses (like terraform)
       # consume/exhaust that fd, silently stopping the loop after one entry.
+      #
+      # A shell loop's own exit code is just the last command's exit code -
+      # if init fails on directory 1 of 3 but succeeds on 2 and 3, the loop
+      # (and this whole step) would report success. Track failures across
+      # every iteration and fail the step for real if any directory failed.
+      FAILED=0
       for dir in $(cat /workspace/changed_dirs.txt); do
         if [ -d "$dir" ]; then
           echo "Initializing Terraform in $dir..."
           cd /workspace/"$dir"
-          terraform init -input=false
+          if ! terraform init -input=false; then
+            echo "Error: terraform init failed in $dir"
+            FAILED=1
+          fi
           cd /workspace
         fi
       done
+      exit $FAILED
     id: 'tf-init'
     waitFor: ['detect-changes']
 
@@ -142,16 +152,21 @@ steps:
     args:
     - '-c'
     - |
+      FAILED=0
       if [ "$_ACTION" = "plan" ] || [ "$_ACTION" = "apply" ]; then
         for dir in $(cat /workspace/changed_dirs.txt); do
           if [ -d "$dir" ]; then
             echo "Planning Terraform in $dir..."
             cd /workspace/"$dir"
-            terraform plan -input=false -out=tfplan
+            if ! terraform plan -input=false -out=tfplan; then
+              echo "Error: terraform plan failed in $dir"
+              FAILED=1
+            fi
             cd /workspace
           fi
         done
       fi
+      exit $FAILED
     id: 'tf-plan'
     waitFor: ['tf-security-scan']
 
@@ -161,6 +176,7 @@ steps:
     args: 
     - '-c'
     - |
+      FAILED=0
       if [ "$_ACTION" = "apply" ]; then
         for dir in $(cat /workspace/changed_dirs.txt); do
           if [ -d "$dir" ]; then
@@ -177,10 +193,13 @@ steps:
             echo "Applying Terraform in $dir..."
             cd /workspace/"$dir"
             if [ -f "tfplan" ]; then
-              terraform apply -auto-approve -input=false tfplan
+              if ! terraform apply -auto-approve -input=false tfplan; then
+                echo "Error: terraform apply failed in $dir"
+                FAILED=1
+              fi
             else
               echo "Error: tfplan missing in $dir"
-              exit 1
+              FAILED=1
             fi
             cd /workspace
           fi
@@ -188,6 +207,7 @@ steps:
       else
         echo "Action is not apply, skipping terraform apply."
       fi
+      exit $FAILED
     id: 'tf-apply'
     waitFor: ['tf-plan']
 
