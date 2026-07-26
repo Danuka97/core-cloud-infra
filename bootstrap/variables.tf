@@ -1,3 +1,14 @@
+variable "project_id" {
+  type        = string
+  description = "The GCP project ID that hosts the bootstrap/admin resources"
+}
+
+variable "region" {
+  type        = string
+  description = "The default GCP region for bootstrap resources"
+  default     = "europe-west2"
+}
+
 variable "org_id" {
   type        = string
   description = "The GCP Organization ID"
