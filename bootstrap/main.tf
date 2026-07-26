@@ -1,6 +1,6 @@
 provider "google" {
-  project = "project-178eec10-8102-4697-a53"
-  region  = "europe-west2"
+  project = var.project_id
+  region  = var.region
 }
 
 # Fetch current project details

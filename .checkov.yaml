@@ -1,0 +1,14 @@
+framework:
+  - terraform
+
+# Fail the build on any confirmed issue at these severities. Adjust as the
+# baseline gets cleaned up - start strict for new findings, not lenient.
+compact: true
+quiet: true
+
+# Skip checks that don't apply to this repo's design:
+# - CKV_GCP_29/30/31: bucket-level uniform access / retention checks that
+#   don't apply to the Terraform state bucket itself (managed by bootstrap,
+#   not by the environment modules being scanned here).
+skip-check:
+  - CKV_GCP_62 # bucket logging - state bucket is out of scope for this scan

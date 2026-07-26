@@ -82,10 +82,33 @@ steps:
       done
     id: 'tf-init'
 
+  # Security static analysis (Runs for changed directories, before plan)
+  # Checkov scans the Terraform source itself for policy violations (open
+  # firewalls, missing encryption, public buckets, over-broad IAM, etc.)
+  # without needing GCP credentials, so an insecure change fails fast
+  # instead of waiting on a full plan.
+  - name: 'bridgecrew/checkov:latest'
+    entrypoint: 'sh'
+    args:
+    - '-c'
+    - |
+      if [ ! -s /workspace/changed_dirs.txt ]; then
+        exit 0
+      fi
+
+      for dir in $(cat /workspace/changed_dirs.txt); do
+        if [ -d "$dir" ]; then
+          echo "Scanning $dir..."
+          checkov -d "/workspace/$dir" --config-file /workspace/.checkov.yaml
+        fi
+      done
+    id: 'tf-security-scan'
+    waitFor: ['tf-init']
+
   # Terraform Plan (Runs for changed directories)
   - name: 'hashicorp/terraform:latest'
     entrypoint: 'sh'
-    args: 
+    args:
     - '-c'
     - |
       if [ "$_ACTION" = "plan" ] || [ "$_ACTION" = "apply" ]; then
@@ -99,7 +122,7 @@ steps:
         done
       fi
     id: 'tf-plan'
-    waitFor: ['tf-init']
+    waitFor: ['tf-security-scan']
 
   # Terraform Apply (Only runs if _ACTION=apply)
   - name: 'hashicorp/terraform:latest'
