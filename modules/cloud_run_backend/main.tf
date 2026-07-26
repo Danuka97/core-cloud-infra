@@ -1,3 +1,14 @@
+# Where the app-delivery pipeline (a separate Cloud Build trigger/file from
+# the Terraform pipeline that provisions this module) pushes built backend
+# images to. One repo per environment, matching this repo's per-environment-
+# project isolation pattern rather than a single shared registry.
+resource "google_artifact_registry_repository" "backend" {
+  project       = var.project_id
+  location      = var.region
+  repository_id = "${var.app_name}-${var.environment}"
+  format        = "DOCKER"
+}
+
 # Serverless VPC Access connector - lets the Cloud Run service reach
 # resources on the environment's private VPC (e.g. Vertex AI over private
 # networking, or anything else on this project's subnet).

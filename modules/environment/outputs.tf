@@ -6,6 +6,10 @@ output "backend_url" {
   value = module.backend.service_url
 }
 
+output "artifact_registry_repository_url" {
+  value = module.backend.artifact_registry_repository_url
+}
+
 output "firebase_web_app_id" {
   value = module.firebase.web_app_id
 }
