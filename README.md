@@ -66,15 +66,24 @@ environment directories from scratch.
    are affected, and runs `terraform init` in each. A change to a file under
    `modules/` is treated as affecting every application/environment, since a
    shared module change can silently change any of them.
-2. **Static analysis.** `tflint` (config: `.tflint.hcl`, GCP ruleset) runs
-   against each affected directory before anything is planned, so
-   misconfigurations fail fast without needing GCP credentials.
+2. **Security scan.** `checkov` (config: `.checkov.yaml`) scans each affected
+   directory's Terraform source for policy violations (open firewalls,
+   missing encryption, over-broad IAM, etc.) before anything is planned, so
+   an insecure change fails fast without needing GCP credentials.
 3. **`terraform plan`** runs and its output shows up in the Cloud Build PR
    check — review it there.
 4. **Merge to `main`.** The `apply-infra-push-main` trigger runs the same
-   directory-detection, lint, and plan steps, then applies the exact plan
-   that was already produced (not a fresh plan) via the saved `tfplan`
-   artifact.
+   directory-detection, security-scan, and plan steps, then applies the
+   exact plan that was already produced (not a fresh plan) via the saved
+   `tfplan` artifact.
+
+On push (not PR), the changed-directory detection diffs against the last
+commit this pipeline actually applied — tracked via a marker object
+(`ci/last-applied-commit.txt`) in the state bucket — rather than just the
+immediate parent commit. This matters because merging two PRs to `main` in
+quick succession can mean GitHub only fires one push build for the later
+merge; diffing against the immediate parent alone would silently miss
+whatever the earlier, un-built merge introduced.
 
 Only directories with actual changes are touched — merging a change to
 `applications/core-app/prod/terraform.tfvars` will not re-plan `task_manager`.
