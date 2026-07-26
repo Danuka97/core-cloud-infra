@@ -49,6 +49,7 @@ resource "google_project_service" "apis" {
     "identitytoolkit.googleapis.com",
     "aiplatform.googleapis.com",
     "iam.googleapis.com",
+    "cloudkms.googleapis.com",
   ])
 
   project            = google_project.env_project.project_id

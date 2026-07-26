@@ -1,3 +1,39 @@
+# Customer-managed encryption key for the Artifact Registry repo below
+# (Checkov CKV_GCP_84) - Google's default encryption-at-rest already
+# protects the data, but CMEK gives this project control over the key
+# itself (rotation, revocation) rather than relying solely on Google-
+# managed keys.
+resource "google_kms_key_ring" "backend" {
+  project  = var.project_id
+  name     = "${var.app_name}-${var.environment}-registry"
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "backend" {
+  name            = "${var.app_name}-${var.environment}-registry-key"
+  key_ring        = google_kms_key_ring.backend.id
+  rotation_period = "7776000s" # 90 days
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Artifact Registry's own service agent needs to be able to use the key to
+# encrypt/decrypt on the repo's behalf - without this binding, creating a
+# CMEK-backed repository fails at the API level.
+resource "google_project_service_identity" "artifactregistry" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "artifactregistry.googleapis.com"
+}
+
+resource "google_kms_crypto_key_iam_member" "artifactregistry_encrypter" {
+  crypto_key_id = google_kms_crypto_key.backend.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${google_project_service_identity.artifactregistry.email}"
+}
+
 # Where the app-delivery pipeline (a separate Cloud Build trigger/file from
 # the Terraform pipeline that provisions this module) pushes built backend
 # images to. One repo per environment, matching this repo's per-environment-
@@ -7,6 +43,9 @@ resource "google_artifact_registry_repository" "backend" {
   location      = var.region
   repository_id = "${var.app_name}-${var.environment}"
   format        = "DOCKER"
+  kms_key_name  = google_kms_crypto_key.backend.id
+
+  depends_on = [google_kms_crypto_key_iam_member.artifactregistry_encrypter]
 }
 
 # Serverless VPC Access connector - lets the Cloud Run service reach
