@@ -8,6 +8,16 @@ if [ -z "$1" ]; then
 fi
 
 APP_NAME=$1
+
+# GCP project names/IDs don't allow underscores. app_name flows straight into
+# google_project.name in modules/project_factory, so an underscore here fails
+# terraform plan/apply, not scaffolding itself - catch it before it reaches CI.
+if [[ "$APP_NAME" == *_* ]]; then
+  echo "Error: app name '$APP_NAME' contains an underscore, which GCP project names don't allow."
+  echo "Use hyphens instead, e.g. ${APP_NAME//_/-}"
+  exit 1
+fi
+
 BASE_DIR="applications/${APP_NAME}"
 STATE_BUCKET="core-infra-seed-8274-tf-state"
 REGION="europe-west2"
