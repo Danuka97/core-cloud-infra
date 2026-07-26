@@ -119,7 +119,7 @@ steps:
           cd /workspace
         fi
       done
-      exit $FAILED
+      exit $$FAILED
     id: 'tf-init'
     waitFor: ['detect-changes']
 
@@ -166,7 +166,7 @@ steps:
           fi
         done
       fi
-      exit $FAILED
+      exit $$FAILED
     id: 'tf-plan'
     waitFor: ['tf-security-scan']
 
@@ -207,7 +207,7 @@ steps:
       else
         echo "Action is not apply, skipping terraform apply."
       fi
-      exit $FAILED
+      exit $$FAILED
     id: 'tf-apply'
     waitFor: ['tf-plan']
 
