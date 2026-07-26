@@ -164,6 +164,16 @@ steps:
       if [ "$_ACTION" = "apply" ]; then
         for dir in $(cat /workspace/changed_dirs.txt); do
           if [ -d "$dir" ]; then
+            # An environment only gets applied if it has an .enabled marker
+            # file committed in its directory. This is the on/off switch for
+            # which environments actually get created - add or remove the
+            # file in a PR to turn an environment on or off, independent of
+            # which files changed. Plan/checkov still run either way, so you
+            # can always see what an environment *would* do.
+            if [ ! -f "/workspace/$dir/.enabled" ]; then
+              echo "Skipping apply in $dir (.enabled marker not present)."
+              continue
+            fi
             echo "Applying Terraform in $dir..."
             cd /workspace/"$dir"
             if [ -f "tfplan" ]; then
