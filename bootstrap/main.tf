@@ -183,7 +183,7 @@ resource "google_cloudbuild_trigger" "apps_push_main_trigger" {
 
 # GitHub App installation connection (2nd-gen)
 resource "google_cloudbuildv2_connection" "github_connection" {
-  name     = "GitHub-dw"
+  name     = "github-connection"
   location = "europe-west2"
 
   github_config {
@@ -197,7 +197,7 @@ resource "google_cloudbuildv2_connection" "github_connection" {
 }
 
 resource "google_cloudbuildv2_repository" "core_infra_repo" {
-  name              = "Danuka97-core-cloud-infra"
+  name              = "core-cloud-infra"
   location          = "europe-west2"
   parent_connection = google_cloudbuildv2_connection.github_connection.name
   remote_uri        = "https://github.com/Danuka97/core-cloud-infra.git"
