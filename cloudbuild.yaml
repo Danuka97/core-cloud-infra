@@ -1,27 +1,56 @@
 steps:
+  # Read the marker recording the last commit this pipeline successfully
+  # applied (written by the record-marker step below). Uses the dedicated
+  # gsutil builder image rather than assuming gsutil exists inside the git
+  # image. Writes an empty file if no marker exists yet (first run ever).
+  - name: 'gcr.io/cloud-builders/gsutil'
+    entrypoint: 'sh'
+    args:
+    - '-c'
+    - |
+      gsutil cat "gs://$_STATE_BUCKET/ci/last-applied-commit.txt" > /workspace/last_applied_commit.txt 2>/dev/null || true
+    id: 'read-marker'
+
   # Retrieve the list of changed directories comparing against previous commit or PR target branch
   # This relies on Cloud Build cloning the repo securely and git history being available.
   - name: 'gcr.io/cloud-builders/git'
     entrypoint: 'bash'
+    waitFor: ['read-marker']
     args:
     - '-c'
     - |
-      # If this is a PR, compare against base branch; if it's a push, compare against previous commit
+      # If this is a PR, compare against base branch; if it's a push, compare
+      # against the last commit this pipeline actually finished processing -
+      # NOT just the immediate parent (~1). If two PRs merge to main in quick
+      # succession, GitHub may only fire one push build for the latest HEAD,
+      # and diffing against ~1 alone would silently skip whatever the earlier,
+      # un-built merge commit introduced. A marker file in the state bucket
+      # tracks the true "last processed" commit across build runs, so no
+      # range of pushed commits is ever skipped, however many land at once.
       if [ -n "$_HEAD_BRANCH" ]; then
         git fetch origin $_BASE_BRANCH --depth=1
         DIFF_TARGET="origin/$_BASE_BRANCH"
       else
-        # Cloud Build's automatic source checkout is a shallow (depth=1) clone
-        # of just $COMMIT_SHA, so its parent doesn't exist locally yet and
-        # "$COMMIT_SHA~1" can't be used as a remote refspec for fetch. Fetch
-        # $COMMIT_SHA again with depth=2 to pull down its parent too.
-        git fetch origin $COMMIT_SHA --depth=2
-        if git rev-parse -q --verify "$COMMIT_SHA~1" >/dev/null 2>&1; then
-          DIFF_TARGET="$COMMIT_SHA~1"
-        else
-          # No parent (e.g. very first commit) - diff against the empty tree
-          # so every file counts as changed.
-          DIFF_TARGET=$$(git hash-object -t tree /dev/null)
+        LAST_COMMIT=$$(cat /workspace/last_applied_commit.txt 2>/dev/null || true)
+
+        if [ -n "$$LAST_COMMIT" ]; then
+          # Fetch enough history to reach the last commit we actually
+          # processed, however far back that was.
+          git fetch origin "$$LAST_COMMIT" --depth=1 2>/dev/null || git fetch origin --unshallow
+          if git rev-parse -q --verify "$$LAST_COMMIT" >/dev/null 2>&1; then
+            DIFF_TARGET="$$LAST_COMMIT"
+          fi
+        fi
+
+        if [ -z "$$DIFF_TARGET" ]; then
+          # No marker yet (first run ever) - fall back to the immediate
+          # parent, same as before, or the empty tree on the very first commit.
+          git fetch origin $COMMIT_SHA --depth=2
+          if git rev-parse -q --verify "$COMMIT_SHA~1" >/dev/null 2>&1; then
+            DIFF_TARGET="$COMMIT_SHA~1"
+          else
+            DIFF_TARGET=$$(git hash-object -t tree /dev/null)
+          fi
         fi
       fi
 
@@ -55,6 +84,7 @@ steps:
 
       echo "Directories to process:"
       cat /workspace/changed_dirs.txt
+    id: 'detect-changes'
 
   # Initialize Terraform in all changed directories
   - name: 'hashicorp/terraform:latest'
@@ -81,6 +111,7 @@ steps:
         fi
       done
     id: 'tf-init'
+    waitFor: ['detect-changes']
 
   # Security static analysis (Runs for changed directories, before plan)
   # Checkov scans the Terraform source itself for policy violations (open
@@ -150,10 +181,26 @@ steps:
     id: 'tf-apply'
     waitFor: ['tf-plan']
 
+  # Record the commit this pipeline successfully applied, so the next push
+  # build's changed-file diff starts from here rather than just ~1. Only
+  # runs after a real apply - a plan-only build must not move the marker,
+  # since nothing was actually made to match that commit's Terraform.
+  - name: 'gcr.io/cloud-builders/gsutil'
+    entrypoint: 'sh'
+    args:
+    - '-c'
+    - |
+      if [ "$_ACTION" = "apply" ]; then
+        echo "$COMMIT_SHA" | gsutil cp - "gs://$_STATE_BUCKET/ci/last-applied-commit.txt"
+      fi
+    id: 'record-marker'
+    waitFor: ['tf-apply']
+
 substitutions:
   _ACTION: "plan"      # Defaults to plan, overridden to 'apply' in push-to-main trigger
   _BASE_BRANCH: ""     # Used for PRs
   _HEAD_BRANCH: ""     # Used for PRs
+  _STATE_BUCKET: "core-infra-seed-8274-tf-state"  # bucket holding the ci/ marker object
 
 options:
   logging: CLOUD_LOGGING_ONLY
