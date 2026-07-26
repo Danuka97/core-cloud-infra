@@ -7,11 +7,20 @@ provider "google" {
 data "google_project" "current" {}
 
 # 1. Ensure required APIs are enabled
+# cloudkms/firebase are needed here (not just on spoke projects) because
+# those two APIs bill/check quota against whichever project the Terraform
+# provider authenticates as (this seed project, since that's the CI service
+# account's own project) rather than the resource's project= argument -
+# without these enabled here, google_kms_key_ring/google_firebase_project
+# fail with SERVICE_DISABLED against this project even when correctly
+# targeting a spoke project.
 resource "google_project_service" "services" {
   for_each = toset([
     "cloudbuild.googleapis.com",
     "secretmanager.googleapis.com",
-    "cloudresourcemanager.googleapis.com"
+    "cloudresourcemanager.googleapis.com",
+    "cloudkms.googleapis.com",
+    "firebase.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
